@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
+import spacy_streamlit
+import spacy
 
 from predict_classifier import init_classifier_model_tokenizer, classify_abstract
+from predict_NER import init_ner_model_tokenizer, init_spacy_parser, text_ner
 
 classifier_model_path = "classifier_model.pt"
 classifier_tokenizer_path = "classifier_tokenizer.pt"
 classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path,
                                                                          classifier_tokenizer_path)
-ids_to_labels = {0: "OBJECTIVE&BACKGROUND", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
+classifier_ids_to_labels = {0: "OBJECTIVE&BACKGROUND", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
+ner_ids_to_labels = {0: 'INTV', 1: 'MEAS', 2: 'O', 3: 'OC'}
+ner_labels = list(ner_ids_to_labels.values())
 
 # set page config
 st.set_page_config(
@@ -30,7 +35,17 @@ In this population of patients with POAG, bimatoprost was associated with increa
 st.subheader("Enter RCT paper abstract for analysis")
 text = st.text_area("Paste full RCT paper abstract below", default_text, height=200)
 
-classify_result = classify_abstract(text, classifier_model, classifier_tokenizer, ids_to_labels)
-for label, paragraph in classify_result.items():
-    st.subheader(label)
-    st.write(paragraph)
+classify_result = classify_abstract(text, classifier_model, classifier_tokenizer, classifier_ids_to_labels)
+ner_model, ner_tokenizer = init_ner_model_tokenizer("NER_model.pt", "NER_tokenizer.pt")
+spacy_parser = init_spacy_parser()
+
+st.title("Analysis Result")
+
+for classifier_label, paragraph in classify_result.items():
+    st.subheader(classifier_label)
+    if classifier_label == "OBJECTIVE&BACKGROUND" or classifier_label == "CONCLUSIONS":
+        st.write(paragraph)
+    else:
+        doc = text_ner(paragraph, ner_model, ner_tokenizer, spacy_parser, ner_ids_to_labels)
+        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None,
+                                      key=classifier_label)

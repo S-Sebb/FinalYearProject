@@ -1,13 +1,64 @@
 # -*- coding: utf-8 -*-
 
+import spacy
 import torch
 from transformers import BertTokenizer
+import numpy as np
+from spacy.tokens import Span
 
+def init_ner_model_tokenizer(ner_model_path, ner_tokenizer_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def init_model_tokenizer():
-    model = torch.load('NER.pt')
-    tokenizer = BertTokenizer.from_pretrained("NER_tokenizer.pt")
+    model = torch.load(ner_model_path).to(device)
+    tokenizer = BertTokenizer.from_pretrained(ner_tokenizer_path)
     return model, tokenizer
+
+
+def init_spacy_parser():
+    parser = spacy.load("en_core_web_sm", disable=["tagger", "ner"])  # just the parser
+    return parser
+
+
+def text_ner(text, model, tokenizer, parser, ids_to_labels):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    doc = parser.make_doc(text)
+    words = [token.text for token in doc]
+    tokens = []
+    word_ids = []
+    for i, word in enumerate(words):
+        token = tokenizer.tokenize(word)
+        tokens.extend(token)
+        word_ids.extend([i] * len(token))
+    input_ids = tokenizer.convert_tokens_to_ids(tokens)
+    input_ids = torch.tensor([input_ids]).to(device)
+    with torch.no_grad():
+        output = model(input_ids)
+    label_ids = torch.argmax(output[0], dim=2)
+    labels = []
+    for i, label_id in enumerate(label_ids.squeeze()):
+        label_id = label_id.item()
+        if word_ids[i] >= len(labels):
+            labels.append(ids_to_labels[label_id])
+    ents = []
+    cur_label = None
+    label_start = None
+    for i, label in enumerate(labels):
+        if label == "O":
+            if cur_label is not None:
+                ent = Span(doc, label_start, i, label=cur_label)
+                ents.append(ent)
+            cur_label = None
+            continue
+        if cur_label is None:
+            cur_label = label
+            label_start = i
+        elif cur_label != label:
+            ent = Span(doc, i, i + 1, label=label)
+            ents.append(ent)
+    doc.set_ents(ents)
+
+    return doc
 
 
 if __name__ == '__main__':
@@ -27,7 +78,7 @@ if __name__ == '__main__':
     ids_to_label = {0: 'INTV', 1: 'MEAS', 2: 'O', 3: 'OC'}
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, tokenizer = init_model_tokenizer()
+    model, tokenizer = init_ner_model_tokenizer()
     model.eval()
     model.to(device)
 

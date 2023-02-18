@@ -53,10 +53,8 @@ for i, article in enumerate(result):
         label_num = nlm_category_convert_dict[nlm_category]
         label_text = reverse_nlm_category_convert_dict[label_num]
         if nlm_category in nlm_category_convert_dict:
-            lines = nltk.sent_tokenize(abstract_text.text)
-            for line in lines:
-                all_label_num_line_dict[label_num].append(line)
-                label_text_line_dict[label_text].append(line)
+            all_label_num_line_dict[label_num].append(abstract_text.text)
+            label_text_line_dict[label_text].append(abstract_text.text)
     for k, v in label_text_line_dict.items():
         if len(v) > 0:
             all_label_text_line_dict[k].append("\n".join(v))

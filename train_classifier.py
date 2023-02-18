@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from copy import deepcopy
+
 import livelossplot
 import pandas as pd
 import torch
@@ -12,7 +14,7 @@ def preprocess_text(text, classifier_tokenizer):
         text,
         add_special_tokens=True,
         padding="max_length",
-        max_length=128,
+        max_length=256,
         return_attention_mask=True,
         truncation=True,
         return_tensors='pt'
@@ -83,7 +85,10 @@ if __name__ == "__main__":
 
     plt = livelossplot.PlotLosses()
 
-    for _ in pbar_1:
+    best_eval_accuracy = 0
+    best_model = None
+
+    for epoch in pbar_1:
         model.train()
 
         # Tracking variables
@@ -109,9 +114,6 @@ if __name__ == "__main__":
                 train_steps += 1
             pbar_2.close()
 
-        postfix_dict['train_loss'] = train_loss / train_steps
-        pbar_1.set_postfix(postfix_dict)
-
         model.eval()
         eval_correct_num = 0
         eval_num = 0
@@ -130,13 +132,20 @@ if __name__ == "__main__":
                 eval_num += b_input_ids.size(0)
             pbar_2.close()
         eval_accuracy = eval_correct_num / eval_num
+
+        pbar_1.set_postfix(postfix_dict)
+        if epoch > epochs * 0.5:
+            if eval_accuracy > best_eval_accuracy:
+                best_eval_accuracy = eval_accuracy
+                best_model = deepcopy(model)
+
+        postfix_dict['train_loss'] = train_loss / train_steps
         postfix_dict['eval_accuracy'] = eval_accuracy
         postfix_dict['eval_correct_num'] = "{}/{}".format(eval_correct_num, eval_num)
-        pbar_1.set_postfix(postfix_dict)
 
         plt.update({"train_loss": train_loss / train_steps, "eval_accuracy": eval_accuracy})
 
-    torch.save(model, output_model_filepath)
+    torch.save(best_model, output_model_filepath)
     tokenizer.save_pretrained(output_tokenizer_filepath)
 
     plt.send()

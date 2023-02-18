@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ from NERDataSequence import NERDataSequence
 
 if __name__ == "__main__":
     input_filepath = os.path.join("annotated_NER", "RCT_ART_NER.jsonl")
-    model_output_filepath = os.path.join("NER.pt")
+    model_output_filepath = os.path.join("NER_model.pt")
     tokenizer_output_filepath = os.path.join("NER_tokenizer.pt")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -81,7 +82,10 @@ if __name__ == "__main__":
     )
     model.to(device)
 
-    epochs = 5
+    epochs = 10
+    best_model = None
+    best_eval_acc = 0
+
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-5, eps=1e-08, weight_decay=1e-8)
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
@@ -94,7 +98,7 @@ if __name__ == "__main__":
 
     for epoch in range(epochs):
         pbar.update(1)
-        total_loss = 0
+        total_train_loss = 0
         with tqdm(total=len(train_dataloader), desc="Training batches", leave=False) as pbar_2:
             train_accurate_num = 0
             train_total_num = 0
@@ -121,12 +125,12 @@ if __name__ == "__main__":
                     for j in range(len(logits[i])):
                         if logits[i][j].argmax() == true_label_ids[i][j] and true_label_ids[i][j] != -100:
                             train_accurate_num += 1
-                total_loss += loss.item()
+                total_train_loss += loss.item()
                 loss.backward()
                 optimizer.step()
 
-            test_accurate_num = 0
-            test_total_num = 0
+            eval_accurate_num = 0
+            eval_total_num = 0
 
             for batch in val_dataloader:
                 input_ids, attention_mask, aligned_label_ids = batch
@@ -136,7 +140,7 @@ if __name__ == "__main__":
                 for labels in aligned_label_ids.squeeze():
                     for label in labels:
                         if label != -100:
-                            test_total_num += 1
+                            eval_total_num += 1
 
                 model.eval()
                 outputs = model(input_ids, attention_mask=attention_mask, token_type_ids=None,
@@ -148,15 +152,23 @@ if __name__ == "__main__":
                 for i in range(len(logits)):
                     for j in range(len(logits[i])):
                         if pred_label_ids[i][j] == true_label_ids[i][j] and true_label_ids[i][j] != -100:
-                            test_accurate_num += 1
+                            eval_accurate_num += 1
 
-        pbar.set_postfix({"loss": total_loss / len(train_dataloader),
-                          "train_accuracy": (train_accurate_num / train_total_num),
-                          "test_accuracy": (test_accurate_num / test_total_num)})
-        plt.update({"loss": total_loss / len(train_dataloader),
-                    "train_accuracy": (train_accurate_num / train_total_num),
-                    "test_accuracy": (test_accurate_num / test_total_num)})
+        train_acc = train_accurate_num / train_total_num
+        eval_acc = eval_accurate_num / eval_total_num
 
-    torch.save(model, model_output_filepath)
+        if epoch > epochs * 0.5:
+            if eval_acc > best_eval_acc:
+                best_eval_acc = eval_acc
+                best_model = deepcopy(model)
+
+        pbar.set_postfix({"train_loss": total_train_loss / len(train_dataloader),
+                          "train_accuracy": train_acc,
+                          "eval_accuracy": eval_acc})
+        plt.update({"train_loss": total_train_loss / len(train_dataloader),
+                    "train_accuracy": train_acc,
+                    "eval_accuracy": eval_acc})
+
+    torch.save(best_model, model_output_filepath)
     tokenizer.save_pretrained(tokenizer_output_filepath)
     plt.send()

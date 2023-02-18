@@ -23,7 +23,7 @@ def init_classifier_model_tokenizer(classifier_model_path, classifier_tokenizer_
 
 
 def classify_abstract(abstract_text, classifier_model, classifier_tokenizer, ids_to_labels):
-    input_lines = nltk.sent_tokenize(abstract_text)
+    input_lines = abstract_text.split("\n")
     input_lines = [line.strip() for line in input_lines if line.strip() != ""]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -53,10 +53,16 @@ if __name__ == "__main__":
     In this population of patients with POAG, bimatoprost was associated with increased pOBF, and the reduction in pOBF associated with timolol was corrected after patients were switched to bimatoprost. Bimatoprost was associated with increased choroidal blood flow, beyond the levels recorded before timolol treatment. The decreased IOP level achieved in the timolol group seemed to be improved further by bimatoprost. Considering the potential efficacy of bimatoprost on IOP and pOBF, we suggest that this new drug may represent a clinical advance in the medical treatment of POAG.
     """
     ids_to_labels = {0: "OBJECTIVE&BACKGROUND", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
-    model_path = "classifier_model.pt"
-    tokenizer_path = "classifier_tokenizer.pt"
+    classifier_model_path = "classifier_model.pt"
+    classifier_tokenizer_path = "classifier_tokenizer.pt"
 
-    model, tokenizer = init_classifier_model_tokenizer(model_path, tokenizer_path)
-    predict_result = classify_abstract(input_line, model, tokenizer, ids_to_labels)
+    ner_model_path = "ner_model.pt"
+    ner_tokenizer_path = "ner_tokenizer.pt"
+
+    classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path, classifier_tokenizer_path)
+    predict_result = classify_abstract(input_line, classifier_model, classifier_tokenizer, ids_to_labels)
+
+    ner_model, ner_tokenizer = init_ner_model_tokenizer(ner_model_path, ner_tokenizer_path)
+
     for lines, label in predict_result:
         print(f"{label}: {lines}")
