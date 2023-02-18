@@ -2,58 +2,19 @@
 import json
 import os
 
+import numpy as np
 import torch
 from livelossplot import PlotLosses
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from tqdm import trange, tqdm
 from transformers import BertTokenizer, BertForTokenClassification, logging
 
-from jsonl_to_conll import jsonl_to_IOB
-
-
-def tokenize_and_align_labels(text, labels, tokenizer):
-    tokenized_text = []
-    aligned_labels = []
-    for word, label in zip(text, labels):
-        tokenized_word = tokenizer.tokenize(word)
-        n_subwords = len(tokenized_word)
-        tokenized_text.extend(tokenized_word)
-        if n_subwords > 0:
-            aligned_labels.extend([label] + ["X"] * (n_subwords - 1))
-    aligned_label_ids = [label_to_ids[label] for label in aligned_labels]
-    if len(tokenized_text) > max_length:
-        tokenized_text = tokenized_text[:max_length]
-        aligned_label_ids = aligned_label_ids[:max_length]
-    tokenized_text = ["[CLS]"] + tokenized_text + ["[SEP]"]
-    aligned_label_ids = [-100] + aligned_label_ids + [-100]
-    if len(tokenized_text) < max_length + 2:
-        tokenized_text = tokenized_text + ["[PAD]"] * (max_length + 2 - len(tokenized_text))
-        aligned_label_ids = aligned_label_ids + [-100] * (max_length + 2 - len(aligned_label_ids))
-    input_ids = tokenizer.convert_tokens_to_ids(tokenized_text)
-    attention_mask = [1 if input_id != 0 else 0 for input_id in input_ids]
-    return input_ids, attention_mask, aligned_label_ids
-
-
-class DataSequence(Dataset):
-    def __init__(self, text_list, labels_list, tokenizer):
-        self.input_id_list, self.attention_mask_list, self.aligned_label_id_list = [], [], []
-        for text, labels in zip(text_list, labels_list):
-            input_ids, attention_mask, aligned_label_ids = tokenize_and_align_labels(text, labels, tokenizer)
-            self.input_id_list.append(torch.tensor(input_ids))
-            self.attention_mask_list.append(torch.tensor(attention_mask))
-            self.aligned_label_id_list.append(torch.tensor(aligned_label_ids))
-
-    def __len__(self):
-        return len(self.input_id_list)
-
-    def __getitem__(self, idx):
-        return self.input_id_list[idx], self.attention_mask_list[idx], self.aligned_label_id_list[idx]
-
+from NERDataSequence import NERDataSequence
 
 if __name__ == "__main__":
     input_filepath = os.path.join("annotated_NER", "RCT_ART_NER.jsonl")
-    output_filepath = os.path.join("NER.pt")
-    max_length = 300
+    model_output_filepath = os.path.join("NER.pt")
+    tokenizer_output_filepath = os.path.join("NER_tokenizer.pt")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     text_list = []
@@ -64,27 +25,39 @@ if __name__ == "__main__":
         for line in f:
             json_data = json.loads(line)
             text = json_data["text"]
-            labels = json_data["spans"]
-            tokenized_text, iob_tags = jsonl_to_IOB(text, labels)
-            for label in iob_tags:
+            tokens = json_data["tokens"]
+            spans = json_data["spans"]
+
+            tokenized_text = [token["text"] for token in tokens]
+            labels = ["O"] * len(tokenized_text)
+
+            for span in spans:
+                token_start = span["token_start"]
+                token_end = span["token_end"]
+                label = span["label"]
+                for i in range(token_start, token_end + 1):
+                    labels[i] = label
+
+            for label in labels:
                 if label not in label_counts:
                     label_counts[label] = 0
                 label_counts[label] += 1
             text_list.append(tokenized_text)
-            labels_list.append(iob_tags)
+            labels_list.append(labels)
 
     unique_labels = []
 
-    for labels in labels_list:
-        for label in labels:
+    for spans in labels_list:
+        for label in spans:
             if label not in unique_labels:
                 unique_labels.append(label)
 
     unique_labels = sorted(unique_labels)
-    print(unique_labels)
+
     label_to_ids = {label: i for i, label in enumerate(unique_labels)}
     label_to_ids["X"] = -100
     ids_to_label = {i: label for i, label in enumerate(unique_labels)}
+    ids_to_label[-100] = "X"
 
     # Suppress warnings from training a pre-trained model
     logging.set_verbosity_error()
@@ -94,8 +67,11 @@ if __name__ == "__main__":
         do_lower_case=False
     )
 
-    dataset = DataSequence(text_list, labels_list, tokenizer)
-    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    dataset = NERDataSequence(text_list, labels_list, tokenizer, label_to_ids)
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [int(len(dataset) * 0.8),
+                                                                         len(dataset) - int(len(dataset) * 0.8)])
+    train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=8, shuffle=True)
 
     model = BertForTokenClassification.from_pretrained(
         'bert-base-cased',
@@ -105,7 +81,7 @@ if __name__ == "__main__":
     )
     model.to(device)
 
-    epochs = 200
+    epochs = 5
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-5, eps=1e-08, weight_decay=1e-8)
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
@@ -120,23 +96,67 @@ if __name__ == "__main__":
         pbar.update(1)
         total_loss = 0
         with tqdm(total=len(train_dataloader), desc="Training batches", leave=False) as pbar_2:
+            train_accurate_num = 0
+            train_total_num = 0
+
             for batch in train_dataloader:
                 pbar_2.update(1)
                 input_ids, attention_mask, aligned_label_ids = batch
                 input_ids = input_ids.to(device)
                 attention_mask = attention_mask.to(device)
                 aligned_label_ids = aligned_label_ids.to(device)
+                for labels in aligned_label_ids.squeeze():
+                    for label in labels:
+                        if label != -100:
+                            train_total_num += 1
                 model.train()
                 optimizer.zero_grad()
                 outputs = model(input_ids, attention_mask=attention_mask, token_type_ids=None,
                                 labels=aligned_label_ids)
+                loss = outputs[0]
                 logits = outputs[1]
-                loss = loss_fn(logits.view(-1, len(unique_labels)), aligned_label_ids.view(-1))
+                logits = logits.detach().cpu().numpy()
+                true_label_ids = aligned_label_ids.to('cpu').numpy()
+                for i in range(len(logits)):
+                    for j in range(len(logits[i])):
+                        if logits[i][j].argmax() == true_label_ids[i][j] and true_label_ids[i][j] != -100:
+                            train_accurate_num += 1
                 total_loss += loss.item()
                 loss.backward()
                 optimizer.step()
-        pbar.set_postfix({"loss": total_loss / len(train_dataloader)})
-        plt.update({"loss": total_loss / len(train_dataloader)})
 
-    torch.save(model, output_filepath)
+            test_accurate_num = 0
+            test_total_num = 0
+
+            for batch in val_dataloader:
+                input_ids, attention_mask, aligned_label_ids = batch
+                input_ids = input_ids.to(device)
+                attention_mask = attention_mask.to(device)
+                aligned_label_ids = aligned_label_ids.to(device)
+                for labels in aligned_label_ids.squeeze():
+                    for label in labels:
+                        if label != -100:
+                            test_total_num += 1
+
+                model.eval()
+                outputs = model(input_ids, attention_mask=attention_mask, token_type_ids=None,
+                                labels=aligned_label_ids)
+                logits = outputs[1]
+                logits = logits.detach().cpu().numpy()
+                true_label_ids = aligned_label_ids.to('cpu').numpy()
+                pred_label_ids = np.argmax(logits, axis=2)
+                for i in range(len(logits)):
+                    for j in range(len(logits[i])):
+                        if pred_label_ids[i][j] == true_label_ids[i][j] and true_label_ids[i][j] != -100:
+                            test_accurate_num += 1
+
+        pbar.set_postfix({"loss": total_loss / len(train_dataloader),
+                          "train_accuracy": (train_accurate_num / train_total_num),
+                          "test_accuracy": (test_accurate_num / test_total_num)})
+        plt.update({"loss": total_loss / len(train_dataloader),
+                    "train_accuracy": (train_accurate_num / train_total_num),
+                    "test_accuracy": (test_accurate_num / test_total_num)})
+
+    torch.save(model, model_output_filepath)
+    tokenizer.save_pretrained(tokenizer_output_filepath)
     plt.send()
