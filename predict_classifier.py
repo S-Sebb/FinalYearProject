@@ -8,8 +8,9 @@ def preprocess_text(text, classifier_tokenizer):
     processed_text = classifier_tokenizer.encode_plus(
         text,
         add_special_tokens=True,
-        padding="max_length",
-        max_length=128,
+        padding=False,
+        max_length=512,
+        truncation=True,
         return_attention_mask=True,
         return_tensors='pt'
     )
@@ -34,11 +35,27 @@ def classify_abstract(abstract_text, classifier_model, classifier_tokenizer, ids
         prediction_input_ids = prediction_input['input_ids'].to(device)
         prediction_attention_masks = prediction_input['attention_mask'].to(device)
         predict = classifier_model(prediction_input_ids, prediction_attention_masks)
-        label_num = torch.argmax(predict[0], dim=1).item()
-        label_text = ids_to_labels[label_num]
+        label_id = torch.argmax(predict[0], dim=1).item()
+        label_text = ids_to_labels[label_id]
         label_lines_dict[label_text] += line + "\n\n"
     label_lines_dict = {label_text: label_lines.strip() for label_text, label_lines in label_lines_dict.items()}
     return label_lines_dict
+
+
+def sentence_tokenize(text):
+    sentences = nltk.sent_tokenize(text)
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip() != ""]
+    return sentences
+
+
+def classify_patient(input_sentence, patient_classifier_model, patient_classifier_tokenizer):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    prediction_input = preprocess_text(input_sentence, patient_classifier_tokenizer)
+    prediction_input_ids = prediction_input['input_ids'].to(device)
+    prediction_attention_masks = prediction_input['attention_mask'].to(device)
+    predict = patient_classifier_model(prediction_input_ids, prediction_attention_masks)
+    label_id = torch.argmax(predict[0], dim=1).item()
+    return label_id
 
 
 if __name__ == "__main__":
@@ -59,7 +76,8 @@ if __name__ == "__main__":
     ner_model_path = "ner_model.pt"
     ner_tokenizer_path = "ner_tokenizer.pt"
 
-    classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path, classifier_tokenizer_path)
+    classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path,
+                                                                             classifier_tokenizer_path)
     predict_result = classify_abstract(input_line, classifier_model, classifier_tokenizer, ids_to_labels)
 
     ner_model, ner_tokenizer = init_ner_model_tokenizer(ner_model_path, ner_tokenizer_path)

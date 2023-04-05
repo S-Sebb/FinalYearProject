@@ -1,51 +1,120 @@
 # -*- coding: utf-8 -*-
-import streamlit as st
 import spacy_streamlit
-import spacy
+import streamlit as st
 
-from predict_classifier import init_classifier_model_tokenizer, classify_abstract
-from predict_NER import init_ner_model_tokenizer, init_spacy_parser, text_ner
+from predict_NER import init_ner_model_tokenizer, init_spacy_parser, text_ner, create_spacy_entities, make_spacy_doc
+from predict_classifier import init_classifier_model_tokenizer, classify_abstract, classify_patient, sentence_tokenize
 
 classifier_model_path = "classifier_model.pt"
 classifier_tokenizer_path = "classifier_tokenizer.pt"
-classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path,
-                                                                         classifier_tokenizer_path)
+patient_classifier_model_path = "patient_classifier_model.pt"
+patient_classifier_tokenizer_path = "patient_classifier_tokenizer.pt"
 classifier_ids_to_labels = {0: "OBJECTIVE&BACKGROUND", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
-ner_ids_to_labels = {0: 'INTV', 1: 'MEAS', 2: 'O', 3: 'OC'}
-ner_labels = list(ner_ids_to_labels.values())
 
 # set page config
 st.set_page_config(
-    page_title="NER"
+    page_title="RCT Abstract Analyzer"
 )
 
-st.title("Demo")
+st.title("RCT Abstract Analyzer")
 
-default_text = """The current objective of antiglaucomatous therapy is to reduce intraocular pressure (IOP), and thus to preserve visual function. Many ophthalmologists believe this objective is best achieved by methods that improve ocular blood flow to the optic nerve head. Beta-blockers are effective ocular hypotensive agents, but they can reduce choroidal blood flow. Bimatoprost, a new prostamide analogue, has been shown to have a better IOP-lowering effect compared with the nonselective beta-adrenergic receptor blocker timolol maleate, but little is known about its effects on the vascular bed of the eye.
+default_text = """Although exercise has been addressed as an adjuvant treatment for anxiety, depression and cancer-related symptoms, limited studies have evaluated the effectiveness of exercise in patients with lung cancer.
 
-The aim of this study was to compare the effects of bimatoprost and timolol on IOP and choroidal blood flow (as measured using pulsatile ocular blood flow [pOBF]) in patients with primary open-angle glaucoma (POAG).
+We recruited 116 patients from a medical centre in northern Taiwan, and randomly assigned them to either a walking-exercise group (n=58) or a usual-care group (n=58). We conducted a 12-week exercise programme that comprised home-based, moderate-intensity walking for 40 min per day, 3 days per week, and weekly exercise counselling. The outcome measures included the Hospital Anxiety and Depression Scale and the Taiwanese version of the MD Anderson Symptom Inventory.
 
-This prospective, open-label, randomized, 2-arm, parallel-group study was conducted at the Glaucoma Research Centre, Department of Ophthalmology, University Hospital of Bari, Bari, Italy. Patients with POAG having well-controlled IOP (<16 mm Hg) on monotherapy with timolol 0.5% ophthalmic solution (2 drops per affected eye BID) for ≥12 months but with a progressive decrease in pOBF during the same time period were randomly allocated to 1 of 2 treatment groups. One group continued monotherapy with timolol, 2 drops per affected eye BID. The other group was switched (without washout) to bimatoprost 0.3% ophthalmic solution (2 drops per affected eye QD [9 pm]). Treatment was given for 180 days. IOP and pOBF were assessed at the diagnostic visit (pre-timolol), baseline (day 0), and treatment days 15, 30, 60, 90, and 180. Primary adverse effects (AEs) (ie, conjunctival hyperemia, conjunctival papillae, stinging, burning, foreign body sensation, and pigmentation of periorbital skin) were monitored throughout the study.
+We analysed the effects of the exercise programme on anxiety, depression and cancer-related symptoms by using a generalised estimating equation method. The exercise group patients exhibited significant improvements in their anxiety levels over time (P=0.009 and 0.006 in the third and sixth months, respectively) and depression (P=0.00006 and 0.004 in the third and sixth months, respectively) than did the usual-care group patients.
 
-Thirty-eight patients were enrolled (22 men, 16 women; mean [SD] age, 51.7 [4.8] years; 19 patients per treatment group; 38 eligible eyes). At 180-day follow-up in the timolol group, the IOP and the pOBF remained unchanged compared with baseline. In the bimatoprost group the IOP remained unchanged and the pOBF was decreased by 38.9% compared with baseline (P < 0.01). All AEs were mild to moderate and included conjunctival hyperemia and ocular itching (5 patients [26.3%] in the bimatoprost group) and pigmentation of periorbital skin (2 patients [40.0%] in the bimatoprost group). The incidence of each AE was higher in the bimatoprost group than in the timolol group (P = 0.008).
-
-In this population of patients with POAG, bimatoprost was associated with increased pOBF, and the reduction in pOBF associated with timolol was corrected after patients were switched to bimatoprost. Bimatoprost was associated with increased choroidal blood flow, beyond the levels recorded before timolol treatment. The decreased IOP level achieved in the timolol group seemed to be improved further by bimatoprost. Considering the potential efficacy of bimatoprost on IOP and pOBF, we suggest that this new drug may represent a clinical advance in the medical treatment of POAG.
+The home-based walking exercise programme is a feasible and effective intervention method for managing anxiety and depression in lung cancer survivors and can be considered as an essential component of lung cancer rehabilitation.
 """
 
-st.subheader("Enter RCT paper abstract for analysis")
 text = st.text_area("Paste full RCT paper abstract below", default_text, height=200)
 
-classify_result = classify_abstract(text, classifier_model, classifier_tokenizer, classifier_ids_to_labels)
+classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path,
+                                                                         classifier_tokenizer_path)
 ner_model, ner_tokenizer = init_ner_model_tokenizer("NER_model.pt", "NER_tokenizer.pt")
+patient_classifier_model, patient_classifier_tokenizer = init_classifier_model_tokenizer(patient_classifier_model_path,
+                                                                                         patient_classifier_tokenizer_path)
 spacy_parser = init_spacy_parser()
+
+classify_result = classify_abstract(text, classifier_model, classifier_tokenizer, classifier_ids_to_labels)
+
+st.markdown("""---""")
 
 st.title("Analysis Result")
 
-for classifier_label, paragraph in classify_result.items():
+patient_lines = []
+intervention_entities = []
+outcome_entities = []
+
+for classifier_label, paragraph_text in classify_result.items():
     st.subheader(classifier_label)
-    if classifier_label == "OBJECTIVE&BACKGROUND" or classifier_label == "CONCLUSIONS":
-        st.write(paragraph)
+    if paragraph_text.strip() == "":
+        st.write("No information found.")
+        continue
+
+    if classifier_label == "METHODS":
+        sentences = sentence_tokenize(paragraph_text)
+        for sentence in sentences:
+            patient_flag = classify_patient(sentence, patient_classifier_model, patient_classifier_tokenizer)
+            if patient_flag == 1:
+                patient_lines.append(sentence)
+
+        ner_labels = ['INTV', 'PATIENTS']
+        ner_ids_to_labels = {0: 'INTV', 2: 'O'}
+        doc = make_spacy_doc(paragraph_text, spacy_parser)
+        words = [token.text for token in doc]
+        ner_predict_labels = text_ner(words, ner_model, ner_tokenizer, ner_ids_to_labels)
+        doc = create_spacy_entities(doc, ner_predict_labels)
+        for ent in doc.ents:
+            if ent.label_ == 'INTV':
+                intervention_entities.append(ent.text)
+
+        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None, key=classifier_label)
+
+    elif classifier_label == "RESULTS":
+        ner_labels = ['INTV', 'MEAS', 'OC']
+        ner_ids_to_labels = {0: 'INTV', 1: 'MEAS', 2: 'O', 3: 'OC'}
+        doc = make_spacy_doc(paragraph_text, spacy_parser)
+        words = [token.text for token in doc]
+        ner_predict_labels = text_ner(words, ner_model, ner_tokenizer, ner_ids_to_labels)
+        doc = create_spacy_entities(doc, ner_predict_labels)
+        for ent in doc.ents:
+            if ent.label_ == "OC":
+                outcome_entities.append(ent.text)
+
+        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None, key=classifier_label)
+
     else:
-        doc = text_ner(paragraph, ner_model, ner_tokenizer, spacy_parser, ner_ids_to_labels)
-        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None,
-                                      key=classifier_label)
+        st.write(paragraph_text)
+
+st.markdown("""---""")
+
+st.header("Key Information")
+
+st.subheader("Patient Information")
+if patient_lines:
+    st.write("\n\n".join(patient_lines))
+else:
+    st.write("No patient information found")
+
+st.subheader("Intervention")
+if intervention_entities:
+    st.write("\n\n".join(intervention_entities))
+else:
+    st.write("No intervention information found")
+
+st.subheader("Outcome Measures")
+if outcome_entities:
+    st.write("\n\n".join(outcome_entities))
+else:
+    st.write("No outcome measures information found")
+
+# if len(ner_dict["intervention"]) < len(ner_dict["outcome measures"]):
+#     ner_dict["intervention"].extend([""] * (len(ner_dict["outcome measures"]) - len(ner_dict["intervention"])))
+# elif len(ner_dict["intervention"]) > len(ner_dict["outcome measures"]):
+#     ner_dict["outcome measures"].extend([""] * (len(ner_dict["intervention"]) - len(ner_dict["outcome measures"])))
+#
+# st.title("Key Information Table")
+#
+# result_df = pd.DataFrame(ner_dict)
+# st.dataframe(result_df, width=1000)
