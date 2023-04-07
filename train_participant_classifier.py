@@ -9,7 +9,7 @@ if __name__ == "__main__":
     epochs = 30
     learning_rate = 5e-5
     weight_decay = 1e-8
-    custom_weights_flag = False
+    custom_weights_flag = True
 
     dataset_filepath = os.path.join("datasets", "participant classifier datasets",
                                     "train_participant_classifier_dataset.csv")

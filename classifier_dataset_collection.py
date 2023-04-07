@@ -56,7 +56,7 @@ for disease in diseases:
         # print(xml_str)
         medline_citation = xml_root.find("MedlineCitation")
         article = medline_citation.find("Article")
-        title = article.find("ArticleTitle").text
+        title = article.find("ArticleTitle").input_abstract_text
         # print(title)
         abstract = article.find("Abstract")
         if abstract is None:
@@ -75,7 +75,7 @@ for disease in diseases:
         for abstract_text in abstract.findall("AbstractText"):
             if "NlmCategory" not in abstract_text.attrib:
                 continue
-            if abstract_text.text is None or abstract_text.text.strip() == "":
+            if abstract_text.input_abstract_text is None or abstract_text.input_abstract_text.strip() == "":
                 continue
             label = abstract_text.attrib["Label"]
             nlm_category = abstract_text.attrib["NlmCategory"]
@@ -88,14 +88,14 @@ for disease in diseases:
                     if keyword in label.upper():
                         patient_found = True
                         article_with_patient = True
-                        patient_lines.append(abstract_text.text)
+                        patient_lines.append(abstract_text.input_abstract_text)
                         break
                 if not patient_found:
-                    non_patient_lines.append(abstract_text.text)
+                    non_patient_lines.append(abstract_text.input_abstract_text)
             # label_num = labels_to_ids[nlm_category]
             # label_text = ids_to_labels[label_num]
             if nlm_category in labels_to_ids:
-                section_lines.append(abstract_text.text)
+                section_lines.append(abstract_text.input_abstract_text)
                 section_labels.append(nlm_category)
         if article_with_patient:
             participant_lines.extend(patient_lines)

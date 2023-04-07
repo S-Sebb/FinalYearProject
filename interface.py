@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
+
+import numpy as np
 import spacy_streamlit
 import streamlit as st
 
-from predict_NER import init_ner_model_tokenizer, init_spacy_parser, text_ner, create_spacy_entities, make_spacy_doc
-from predict_classifier import init_classifier_model_tokenizer, classify_abstract, classify_patient, sentence_tokenize
-
-classifier_model_path = "classifier_model.pt"
-classifier_tokenizer_path = "classifier_tokenizer.pt"
-patient_classifier_model_path = "patient_classifier_model.pt"
-patient_classifier_tokenizer_path = "patient_classifier_tokenizer.pt"
-classifier_ids_to_labels = {0: "OBJECTIVE&BACKGROUND", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
+from predict import *
+from utils import *
+import pandas as pd
 
 # set page config
 st.set_page_config(
@@ -18,103 +16,131 @@ st.set_page_config(
 
 st.title("RCT Abstract Analyzer")
 
-default_text = """Although exercise has been addressed as an adjuvant treatment for anxiety, depression and cancer-related symptoms, limited studies have evaluated the effectiveness of exercise in patients with lung cancer.
+default_text = """Lithium remains an important treatment for mood disorders but is associated with kidney disease. Nephrogenic diabetes insipidus (NDI) is associated with up to 3-fold risk of incident chronic kidney disease among lithium users. There are limited randomized controlled trials (RCT) for treatments of lithium-induced NDI, and existing therapies can be poorly tolerated. Therefore, novel treatments are needed for lithium-induced NDI.
 
-We recruited 116 patients from a medical centre in northern Taiwan, and randomly assigned them to either a walking-exercise group (n=58) or a usual-care group (n=58). We conducted a 12-week exercise programme that comprised home-based, moderate-intensity walking for 40 min per day, 3 days per week, and weekly exercise counselling. The outcome measures included the Hospital Anxiety and Depression Scale and the Taiwanese version of the MD Anderson Symptom Inventory.
+We conducted a 12-week double-blind pilot RCT to assess the feasibility and efficacy of 20 mg/d atorvastatin vs placebo in the treatment of NDI in chronic lithium users. Patients, recruited between September 2017 and October 2018, were aged 18 to 85, currently on a stable dose of lithium, and determined to have NDI.
 
-We analysed the effects of the exercise programme on anxiety, depression and cancer-related symptoms by using a generalised estimating equation method. The exercise group patients exhibited significant improvements in their anxiety levels over time (P=0.009 and 0.006 in the third and sixth months, respectively) and depression (P=0.00006 and 0.004 in the third and sixth months, respectively) than did the usual-care group patients.
+Urinary osmolality (UOsm) at 12 weeks adjusted for baseline was not statistically different between groups (+39.6 mOsm/kg [95% CI, -35.3, 114.5] in atorvastatin compared to placebo groups). Secondary outcomes of fluid intake and aquaporin-2 excretions at 12 weeks adjusted for baseline were -0.13 L [95% CI, -0.54, 0.28] and 98.68 [95% CI, -190.34, 387.70], respectively. A moderate effect size was observed for improvements in baseline UOsm by ≥100 mOsm/kg at 12 weeks in patients who received atorvastatin compared to placebo (38.45% (10/26) vs 22.58% (7/31); Cohen's d = 0.66).
 
-The home-based walking exercise programme is a feasible and effective intervention method for managing anxiety and depression in lung cancer survivors and can be considered as an essential component of lung cancer rehabilitation.
-"""
+Among lithium users with NDI, atorvastatin 20 mg/d did not significantly improve urinary osmolality compared to placebo over a 12-week period. Larger confirmatory trials with longer follow-up periods may help to further assess the effects of statins on NDI, especially within patients with more severe NDI."""
 
-text = st.text_area("Paste full RCT paper abstract below", default_text, height=200)
+input_abstract_text = st.text_area("Paste full RCT paper abstract below", default_text, height=500)
 
-classifier_model, classifier_tokenizer = init_classifier_model_tokenizer(classifier_model_path,
-                                                                         classifier_tokenizer_path)
-ner_model, ner_tokenizer = init_ner_model_tokenizer("NER_model.pt", "NER_tokenizer.pt")
-patient_classifier_model, patient_classifier_tokenizer = init_classifier_model_tokenizer(patient_classifier_model_path,
-                                                                                         patient_classifier_tokenizer_path)
+try:
+    section_classification_model_dir = os.path.join("models", "section classifier models")
+    section_classification_model_filename = "BERT_5Section_CustomWeightsTrue_classifier_model"
+    section_classification_tokenizer_filename = "BERT_section_classifier_tokenizer"
+    section_classification_model_filepath = os.path.join(section_classification_model_dir,
+                                                         section_classification_model_filename)
+    section_classification_tokenizer_filepath = os.path.join(section_classification_model_dir,
+                                                             section_classification_tokenizer_filename)
+    section_classification_model, section_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
+        section_classification_model_filepath, section_classification_tokenizer_filepath)
+    section_labels_to_ids = {"BACKGROUND": 0, "OBJECTIVE": 1, "METHODS": 2, "RESULTS": 3, "CONCLUSIONS": 4}
+    section_ids_to_labels = {v: k for k, v in section_labels_to_ids.items()}
+
+    participant_classification_model_dir = os.path.join("models", "participant classifier models")
+    participant_classification_model_filename = "BERT_CustomWeightsTrue_participant_classifier_model"
+    participant_classification_tokenizer_filename = "BERT_participant_classifier_tokenizer"
+    participant_classification_model_filepath = os.path.join(participant_classification_model_dir,
+                                                             participant_classification_model_filename)
+    participant_classification_tokenizer_filepath = os.path.join(participant_classification_model_dir,
+                                                                 participant_classification_tokenizer_filename)
+    participant_classification_model, participant_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
+        participant_classification_model_filepath, participant_classification_tokenizer_filepath)
+    participant_labels_to_ids = {"NON-PATIENT": 0, "PATIENT": 1}
+    participant_ids_to_labels = {v: k for k, v in participant_labels_to_ids.items()}
+
+    NER_model_dir = os.path.join("models", "NER models")
+    NER_model_filename = "RoBERTa_CustomWeightTrue_NER_model"
+    NER_tokenizer_filename = "RoBERTa_NER_tokenizer"
+    model_type = "RoBERTa"
+    NER_model_filepath = os.path.join(NER_model_dir, NER_model_filename)
+    NER_tokenizer_filepath = os.path.join(NER_model_dir, NER_tokenizer_filename)
+    NER_model, NER_tokenizer = load_fine_tuned_NER_model_tokenizer(NER_model_filepath, NER_tokenizer_filepath,
+                                                                   model_type)
+    NER_labels_to_ids = {"O": 0, "INTV": 1, "OC": 2, "MEAS": 3}
+    NER_ids_to_labels = {v: k for k, v in NER_labels_to_ids.items()}
+
+except Exception as e:
+    print(e)
+    st.error(
+        "Something went wrong. Please check the model files are in the correct location and try again.")
+    st.stop()
+    exit()
+
 spacy_parser = init_spacy_parser()
 
-classify_result = classify_abstract(text, classifier_model, classifier_tokenizer, classifier_ids_to_labels)
+paragraphs = abstract_to_paragraphs(input_abstract_text)
+pred_section_labels = predict_classification(paragraphs, section_ids_to_labels, section_classification_model,
+                                             section_classification_tokenizer)
+section_dict = make_section_dict(paragraphs, pred_section_labels)
+
+INTV_entities = []
+OC_entities = []
+# Processing the RESULTS section
+if "RESULTS" in section_dict:
+    result_paragraph = section_dict["RESULTS"]
+    result_spacy_doc = spacy_parser.make_doc(result_paragraph)
+    spacy_tokenized_result_paragraph = [[token.text for token in result_spacy_doc]]
+    NER_pred_labels = predict_NER(spacy_tokenized_result_paragraph, NER_ids_to_labels, NER_model, NER_tokenizer)[0]
+    result_spacy_doc = align_spacy_doc_entity(result_spacy_doc, NER_pred_labels)
+    INTV_entities = np.unique([ent.text.lower() for ent in result_spacy_doc.ents if ent.label_ == "INTV"])
+    OC_entities = np.unique([ent.text.lower() for ent in result_spacy_doc.ents if ent.label_ == "OC"])
+
+# Processing the METHODS section
+methods_paragraph = section_dict["METHODS"]
+methods_sentences = paragraph_to_sentences(methods_paragraph)
+pred_participant_labels = predict_classification(methods_sentences, participant_ids_to_labels,
+                                                 participant_classification_model,
+                                                 participant_classification_tokenizer)
+patient_sentences = [sentence for sentence, label in zip(methods_sentences, pred_participant_labels) if
+                     label == "PATIENT"]
+patient_paragraph = " ".join(patient_sentences)
+methods_spacy_doc = spacy_parser.make_doc(methods_paragraph)
+spacy_tokenized_methods_paragraph = [token.text for token in methods_spacy_doc]
+fake_NER_pred_labels = ["O"] * len(spacy_tokenized_methods_paragraph)
+INTV_words = []
+if len(INTV_entities) > 0:
+    for INTV_entity in INTV_entities:
+        INTV_words.extend(INTV_entity.split())
+    for i, token in enumerate(spacy_tokenized_methods_paragraph):
+        if token.lower() in INTV_words:
+            fake_NER_pred_labels[i] = "INTV"
+methods_spacy_doc = align_spacy_doc_entity(methods_spacy_doc, fake_NER_pred_labels)
 
 st.markdown("""---""")
 
 st.title("Analysis Result")
 
-patient_lines = []
-intervention_entities = []
-outcome_entities = []
-
-for classifier_label, paragraph_text in classify_result.items():
-    st.subheader(classifier_label)
-    if paragraph_text.strip() == "":
-        st.write("No information found.")
+for section_label in section_labels_to_ids.keys():
+    if section_label not in section_dict.keys():
         continue
-
-    if classifier_label == "METHODS":
-        sentences = sentence_tokenize(paragraph_text)
-        for sentence in sentences:
-            patient_flag = classify_patient(sentence, patient_classifier_model, patient_classifier_tokenizer)
-            if patient_flag == 1:
-                patient_lines.append(sentence)
-
-        ner_labels = ['INTV', 'PATIENTS']
-        ner_ids_to_labels = {0: 'INTV', 2: 'O'}
-        doc = make_spacy_doc(paragraph_text, spacy_parser)
-        words = [token.text for token in doc]
-        ner_predict_labels = text_ner(words, ner_model, ner_tokenizer, ner_ids_to_labels)
-        doc = create_spacy_entities(doc, ner_predict_labels)
-        for ent in doc.ents:
-            if ent.label_ == 'INTV':
-                intervention_entities.append(ent.text)
-
-        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None, key=classifier_label)
-
-    elif classifier_label == "RESULTS":
-        ner_labels = ['INTV', 'MEAS', 'OC']
-        ner_ids_to_labels = {0: 'INTV', 1: 'MEAS', 2: 'O', 3: 'OC'}
-        doc = make_spacy_doc(paragraph_text, spacy_parser)
-        words = [token.text for token in doc]
-        ner_predict_labels = text_ner(words, ner_model, ner_tokenizer, ner_ids_to_labels)
-        doc = create_spacy_entities(doc, ner_predict_labels)
-        for ent in doc.ents:
-            if ent.label_ == "OC":
-                outcome_entities.append(ent.text)
-
-        spacy_streamlit.visualize_ner(doc, labels=ner_labels, show_table=False, title=None, key=classifier_label)
-
+    paragraph = section_dict[section_label]
+    st.subheader(section_label)
+    if section_label == "METHODS":
+        spacy_ner_labels = ['INTV']
+        spacy_streamlit.visualize_ner(methods_spacy_doc, labels=spacy_ner_labels, show_table=False, title=None,
+                                      key=section_label)
+    elif section_label == "RESULTS":
+        spacy_ner_labels = ['INTV', 'OC', 'MEAS']
+        spacy_streamlit.visualize_ner(result_spacy_doc, labels=spacy_ner_labels, show_table=False, title=None,
+                                      key=section_label)
     else:
-        st.write(paragraph_text)
+        st.write(paragraph)
 
 st.markdown("""---""")
 
-st.header("Key Information")
+st.title("Key Information")
+if patient_paragraph.strip() != "":
+    patient_df = pd.DataFrame({"Patient": [patient_paragraph]})
+    st.table(patient_df)
+if len(INTV_entities) > 0:
+    INTV_df = pd.DataFrame({"Intervention": INTV_entities})
+    st.table(INTV_df)
+if len(OC_entities) > 0:
+    OC_df = pd.DataFrame({"Outcome": OC_entities})
+    st.table(OC_df)
 
-st.subheader("Patient Information")
-if patient_lines:
-    st.write("\n\n".join(patient_lines))
-else:
-    st.write("No patient information found")
 
-st.subheader("Intervention")
-if intervention_entities:
-    st.write("\n\n".join(intervention_entities))
-else:
-    st.write("No intervention information found")
 
-st.subheader("Outcome Measures")
-if outcome_entities:
-    st.write("\n\n".join(outcome_entities))
-else:
-    st.write("No outcome measures information found")
-
-# if len(ner_dict["intervention"]) < len(ner_dict["outcome measures"]):
-#     ner_dict["intervention"].extend([""] * (len(ner_dict["outcome measures"]) - len(ner_dict["intervention"])))
-# elif len(ner_dict["intervention"]) > len(ner_dict["outcome measures"]):
-#     ner_dict["outcome measures"].extend([""] * (len(ner_dict["intervention"]) - len(ner_dict["outcome measures"])))
-#
-# st.title("Key Information Table")
-#
-# result_df = pd.DataFrame(ner_dict)
-# st.dataframe(result_df, width=1000)
