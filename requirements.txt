@@ -1,0 +1,13 @@
+livelossplot==0.5.5
+matplotlib==3.4.3
+numpy==1.21.1
+pandas==1.5.3
+pymed==0.8.9
+scikit_learn==0.24.2
+simplejson==3.18.0
+spacy==3.5.0
+spacy_streamlit==1.0.2
+streamlit==1.18.1
+torch==2.0.0 # To utilize GPU, install torch==2.0.0+cu117, following the instructions here: https://pytorch.org/get-started/locally/
+tqdm==4.64.1
+transformers==4.1.0

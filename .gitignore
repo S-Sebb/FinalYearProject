@@ -129,11 +129,6 @@ dmypy.json
 .pyre/
 
 .idea/
-*.csv
-*.txt
 *.pt
 *.docx
-*.pkl
-*.xlsx
-*.jsonl
 models/
