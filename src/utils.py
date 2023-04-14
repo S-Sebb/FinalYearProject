@@ -7,6 +7,21 @@ from transformers import BertForSequenceClassification, AutoModelForSequenceClas
     AutoModelForTokenClassification, BertForTokenClassification, RobertaForTokenClassification, BertTokenizer, \
     RobertaTokenizer  # https://huggingface.co/docs/transformers/index
 
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+section_classification_model_dir = os.path.join(root_dir, "models", "section classifier models")
+section_classification_model_filename = "BERT_5Section_CustomWeightsTrue_classifier_model"
+section_classification_tokenizer_filename = "BERT_section_classifier_tokenizer"
+
+participant_classification_model_dir = os.path.join(root_dir, "models", "participant classifier models")
+participant_classification_model_filename = "BERT_CustomWeightsTrue_participant_classifier_model"
+participant_classification_tokenizer_filename = "BERT_participant_classifier_tokenizer"
+
+ner_model_dir = os.path.join(root_dir, "models", "NER models")
+ner_model_filename = "RoBERTa_CustomWeightTrue_NER_model"
+ner_tokenizer_filename = "RoBERTa_NER_tokenizer"
+ner_model_type = "RoBERTa"
+
 
 def load_pretrained_classification_tokenizer_model(num_labels):
     tokenizer = BertTokenizer.from_pretrained(
@@ -131,19 +146,6 @@ def align_spacy_doc_entity(doc, labels):
 
 
 def try_load_predefined_models_tokenizers():
-    section_classification_model_dir = os.path.join("models", "section classifier models")
-    section_classification_model_filename = "BERT_5Section_CustomWeightsTrue_classifier_model"
-    section_classification_tokenizer_filename = "BERT_section_classifier_tokenizer"
-
-    participant_classification_model_dir = os.path.join("models", "participant classifier models")
-    participant_classification_model_filename = "BERT_CustomWeightsTrue_participant_classifier_model"
-    participant_classification_tokenizer_filename = "BERT_participant_classifier_tokenizer"
-
-    ner_model_dir = os.path.join("models", "NER models")
-    ner_model_filename = "RoBERTa_CustomWeightTrue_NER_model"
-    ner_tokenizer_filename = "RoBERTa_NER_tokenizer"
-    ner_model_type = "RoBERTa"
-
     section_classification_model_filepath = os.path.join(section_classification_model_dir,
                                                          section_classification_model_filename)
     section_classification_tokenizer_filepath = os.path.join(section_classification_model_dir,

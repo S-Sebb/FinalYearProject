@@ -3,6 +3,7 @@
 import numpy as np  # https://numpy.org/doc/stable/
 import pandas as pd  # https://pandas.pydata.org/
 import spacy_streamlit  # https://spacy.io/universe/project/spacy-streamlit
+import streamlit as st  # https://docs.streamlit.io/en/stable/
 
 from predict import *
 from utils import *

@@ -10,11 +10,11 @@ from utils import *
 if __name__ == "__main__":
     # Custom parameters
     section_number = 4
-    evaluation_dataset_path = os.path.join("datasets", "section classifier datasets",
+    evaluation_dataset_path = os.path.join(root_dir, "datasets", "section classifier datasets",
                                            "test_%sSection_classifier_dataset.csv" % section_number)
     model_filename = "BERT_%sSection_CustomWeightsTrue_classifier_model" % section_number
     tokenizer_filename = "BERT_section_classifier_tokenizer"
-    model_dir_filepath = os.path.join("models", "section classifier models")
+    model_dir_filepath = os.path.join(root_dir, "models", "section classifier models")
     if section_number == 4:
         labels_to_ids = {"BACKGROUND&OBJECTIVE": 0, "METHODS": 1, "RESULTS": 2, "CONCLUSIONS": 3}
     else:

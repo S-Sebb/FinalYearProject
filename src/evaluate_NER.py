@@ -10,13 +10,13 @@ from utils import *
 
 if __name__ == "__main__":
     # Custom parameters
-    evaluation_dataset_path = os.path.join("datasets", "NER datasets",
+    evaluation_dataset_path = os.path.join(root_dir, "datasets", "NER datasets",
                                            "test_NER_dataset.json")
     custom_weights_flag = True
     model_type = "RoBERTa"
     model_filename = "%s_CustomWeight%s_NER_model" % (model_type, custom_weights_flag)
     tokenizer_filename = "%s_NER_tokenizer" % model_type
-    model_dir_filepath = os.path.join("models", "NER models")
+    model_dir_filepath = os.path.join(root_dir, "models", "NER models")
     labels_to_ids = {"O": 0, "INTV": 1, "OC": 2, "MEAS": 3}
     ids_to_labels = {v: k for k, v in labels_to_ids.items()}
 

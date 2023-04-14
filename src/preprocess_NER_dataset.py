@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import simplejson  # https://simplejson.readthedocs.io/en/latest/
 
+import simplejson  # https://simplejson.readthedocs.io/en/latest/
 from sklearn.model_selection import \
     train_test_split  # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 
+from utils import root_dir
+
 if __name__ == "__main__":
-    input_filepath = os.path.join("datasets", "NER datasets", "RCT_ART_NER.jsonl")
-    train_dataset_output_filepath = os.path.join("datasets", "NER datasets", "train_NER_dataset.json")
-    test_dataset_output_filepath = os.path.join("datasets", "NER datasets", "test_NER_dataset.json")
+    input_filepath = os.path.join(root_dir, "datasets", "NER datasets", "RCT_ART_NER.jsonl")
+    train_dataset_output_filepath = os.path.join(root_dir, "datasets", "NER datasets", "train_NER_dataset.json")
+    test_dataset_output_filepath = os.path.join(root_dir, "datasets", "NER datasets", "test_NER_dataset.json")
 
     token_texts_list = []
     labels_list = []

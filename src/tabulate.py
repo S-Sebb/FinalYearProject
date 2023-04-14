@@ -12,8 +12,8 @@ input_filename = "input.csv"
 output_dirname = "output"
 output_filename = "output.csv"
 
-input_filepath = os.path.join(input_dirname, input_filename)
-output_filepath = os.path.join(output_dirname, output_filename)
+input_filepath = os.path.join(root_dir, input_dirname, input_filename)
+output_filepath = os.path.join(root_dir, output_dirname, output_filename)
 
 with open(input_filepath, "r") as f:
     df = pd.read_csv(f)

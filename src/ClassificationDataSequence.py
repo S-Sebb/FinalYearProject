@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch  # https://pytorch.org/docs/stable/index.html
-from torch.utils.data import Dataset  # https://pytorch.org/docs/stable/data.html
 import transformers  # https://huggingface.co/docs/transformers/index
+from torch.utils.data import Dataset  # https://pytorch.org/docs/stable/data.html
 
 
 def preprocess_text(text, tokenizer):

@@ -5,15 +5,18 @@ from xml.dom import minidom
 from xml.etree import ElementTree
 
 import pandas as pd  # https://pandas.pydata.org/
-from pymed import PubMed # https://github.com/gijswobben/pymed
-from sklearn.model_selection import train_test_split # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+from pymed import PubMed  # https://github.com/gijswobben/pymed
+from sklearn.model_selection import \
+    train_test_split  # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+
+from utils import root_dir
 
 pubmed = PubMed(email="794194678@qq.com")
 
 section_dataset_output_filename = "5Section_classifier_dataset.csv"
 participant_dataset_output_filename = "participant_classifier_dataset.csv"
-section_dataset_output_dir_filepath = os.path.join("datasets", "section classifier datasets")
-participant_dataset_output_dir_filepath = os.path.join("datasets", "participant classifier datasets")
+section_dataset_output_dir_filepath = os.path.join(root_dir, "datasets", "section classifier datasets")
+participant_dataset_output_dir_filepath = os.path.join(root_dir, "datasets", "participant classifier datasets")
 
 if not os.path.exists(section_dataset_output_dir_filepath):
     os.makedirs(section_dataset_output_dir_filepath)
@@ -28,8 +31,9 @@ train_participant_dataset_output_filepath = os.path.join(participant_dataset_out
 test_participant_dataset_output_filepath = os.path.join(participant_dataset_output_dir_filepath,
                                                         "test_" + participant_dataset_output_filename)
 
-labels_to_ids = {"BACKGROUND": 0, "OBJECTIVE": 0, "METHODS": 1, "RESULTS": 2, "CONCLUSIONS": 3}
-ids_to_labels = {0: "BACKGROUND&OBJECTIVE", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
+labels_to_ids = {"BACKGROUND": 0, "OBJECTIVE": 1, "METHODS": 2, "RESULTS": 3, "CONCLUSIONS": 4}
+# ids_to_labels = {0: "BACKGROUND&OBJECTIVE", 1: "METHODS", 2: "RESULTS", 3: "CONCLUSIONS"}
+ids_to_labels = {0: "BACKGROUND", 1: "OBJECTIVE", 2: "METHODS", 3: "RESULTS", 4: "CONCLUSIONS"}
 
 section_lines = []
 section_labels = []
@@ -56,7 +60,7 @@ for disease in diseases:
         # print(xml_str)
         medline_citation = xml_root.find("MedlineCitation")
         article = medline_citation.find("Article")
-        title = article.find("ArticleTitle").input_abstract_text
+        title = article.find("ArticleTitle").text
         # print(title)
         abstract = article.find("Abstract")
         if abstract is None:
@@ -75,7 +79,7 @@ for disease in diseases:
         for abstract_text in abstract.findall("AbstractText"):
             if "NlmCategory" not in abstract_text.attrib:
                 continue
-            if abstract_text.input_abstract_text is None or abstract_text.input_abstract_text.strip() == "":
+            if abstract_text.text is None or abstract_text.text.strip() == "":
                 continue
             label = abstract_text.attrib["Label"]
             nlm_category = abstract_text.attrib["NlmCategory"]
@@ -88,14 +92,14 @@ for disease in diseases:
                     if keyword in label.upper():
                         patient_found = True
                         article_with_patient = True
-                        patient_lines.append(abstract_text.input_abstract_text)
+                        patient_lines.append(abstract_text.text)
                         break
                 if not patient_found:
-                    non_patient_lines.append(abstract_text.input_abstract_text)
+                    non_patient_lines.append(abstract_text.text)
             # label_num = labels_to_ids[nlm_category]
             # label_text = ids_to_labels[label_num]
             if nlm_category in labels_to_ids:
-                section_lines.append(abstract_text.input_abstract_text)
+                section_lines.append(abstract_text.text)
                 section_labels.append(nlm_category)
         if article_with_patient:
             participant_lines.extend(patient_lines)
@@ -119,5 +123,5 @@ participant_test_df = pd.DataFrame({"line": participant_test_lines, "label": par
 
 section_train_df.to_csv(train_section_dataset_output_filepath)
 section_test_df.to_csv(test_section_dataset_output_filepath)
-# participant_train_df.to_csv(train_participant_dataset_output_filepath)
-# participant_test_df.to_csv(test_participant_dataset_output_filepath)
+participant_train_df.to_csv(train_participant_dataset_output_filepath)
+participant_test_df.to_csv(test_participant_dataset_output_filepath)

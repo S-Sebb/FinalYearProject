@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 
 import pandas as pd  # https://pandas.pydata.org/
 from matplotlib import pyplot as plt  # https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.html
@@ -11,12 +10,12 @@ from utils import *
 
 if __name__ == "__main__":
     # Custom parameters
-    evaluation_dataset_path = os.path.join("datasets", "participant classifier datasets",
+    evaluation_dataset_path = os.path.join(root_dir, "datasets", "participant classifier datasets",
                                            "test_participant_classifier_dataset.csv")
     custom_weights_flag = True
     model_filename = "BERT_CustomWeights%s_participant_classifier_model" % custom_weights_flag
     tokenizer_filename = "BERT_participant_classifier_tokenizer"
-    model_dir_filepath = os.path.join("models", "participant classifier models")
+    model_dir_filepath = os.path.join(root_dir, "models", "participant classifier models")
     labels_to_ids = {"NON-PATIENT": 0, "PATIENT": 1}
     ids_to_labels = {v: k for k, v in labels_to_ids.items()}
 
