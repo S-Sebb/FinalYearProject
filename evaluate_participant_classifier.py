@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
 
-import pandas as pd
-from matplotlib import pyplot as plt
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+import pandas as pd  # https://pandas.pydata.org/
+from matplotlib import pyplot as plt  # https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.html
+from sklearn.metrics import classification_report, confusion_matrix, \
+    ConfusionMatrixDisplay  # https://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
 
 from predict import predict_classification
 from utils import *

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import torch
+import torch  # https://pytorch.org/docs/stable/index.html
 
 from ClassificationDataSequence import ClassificationDataSequence
 from NERDataSequence import NERDataSequence

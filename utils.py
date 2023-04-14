@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-import spacy
-from spacy.tokens import Span
+import os
+
+import spacy  # https://spacy.io/
+from spacy.tokens import Span  # https://spacy.io/api/span
 from transformers import BertForSequenceClassification, AutoModelForSequenceClassification, \
     AutoModelForTokenClassification, BertForTokenClassification, RobertaForTokenClassification, BertTokenizer, \
-    RobertaTokenizer
+    RobertaTokenizer  # https://huggingface.co/docs/transformers/index
 
 
 def load_pretrained_classification_tokenizer_model(num_labels):
@@ -126,3 +128,39 @@ def align_spacy_doc_entity(doc, labels):
     doc.set_ents(entities)
 
     return doc
+
+
+def try_load_predefined_models_tokenizers():
+    section_classification_model_dir = os.path.join("models", "section classifier models")
+    section_classification_model_filename = "BERT_5Section_CustomWeightsTrue_classifier_model"
+    section_classification_tokenizer_filename = "BERT_section_classifier_tokenizer"
+
+    participant_classification_model_dir = os.path.join("models", "participant classifier models")
+    participant_classification_model_filename = "BERT_CustomWeightsTrue_participant_classifier_model"
+    participant_classification_tokenizer_filename = "BERT_participant_classifier_tokenizer"
+
+    ner_model_dir = os.path.join("models", "NER models")
+    ner_model_filename = "RoBERTa_CustomWeightTrue_NER_model"
+    ner_tokenizer_filename = "RoBERTa_NER_tokenizer"
+    ner_model_type = "RoBERTa"
+
+    section_classification_model_filepath = os.path.join(section_classification_model_dir,
+                                                         section_classification_model_filename)
+    section_classification_tokenizer_filepath = os.path.join(section_classification_model_dir,
+                                                             section_classification_tokenizer_filename)
+    section_classification_model, section_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
+        section_classification_model_filepath, section_classification_tokenizer_filepath)
+
+    participant_classification_model_filepath = os.path.join(participant_classification_model_dir,
+                                                             participant_classification_model_filename)
+    participant_classification_tokenizer_filepath = os.path.join(participant_classification_model_dir,
+                                                                 participant_classification_tokenizer_filename)
+    participant_classification_model, participant_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
+        participant_classification_model_filepath, participant_classification_tokenizer_filepath)
+
+    ner_model_filepath = os.path.join(ner_model_dir, ner_model_filename)
+    ner_tokenizer_filepath = os.path.join(ner_model_dir, ner_tokenizer_filename)
+    ner_model, ner_tokenizer = load_fine_tuned_NER_model_tokenizer(ner_model_filepath, ner_tokenizer_filepath,
+                                                                   ner_model_type)
+    return section_classification_model, section_classification_tokenizer, participant_classification_model, \
+        participant_classification_tokenizer, ner_model, ner_tokenizer

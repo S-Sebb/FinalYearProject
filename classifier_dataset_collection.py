@@ -4,9 +4,9 @@ import time
 from xml.dom import minidom
 from xml.etree import ElementTree
 
-import pandas as pd
-from pymed import PubMed
-from sklearn.model_selection import train_test_split
+import pandas as pd  # https://pandas.pydata.org/
+from pymed import PubMed # https://github.com/gijswobben/pymed
+from sklearn.model_selection import train_test_split # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 
 pubmed = PubMed(email="794194678@qq.com")
 

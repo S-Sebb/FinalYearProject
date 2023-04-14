@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import torch
-from torch.utils.data import Dataset
+import torch  # https://pytorch.org/docs/stable/index.html
+from torch.utils.data import Dataset  # https://pytorch.org/docs/stable/data.html
 
 
 def tokenize_and_align_labels(text, tokenizer, label_ids=None):

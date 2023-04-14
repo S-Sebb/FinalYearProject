@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 import json
-import os
 import time
 
-import livelossplot
-import numpy as np
-import pandas as pd
-import torch
-from torch.utils.data import DataLoader
-from tqdm import trange, tqdm
-from transformers import logging
+import livelossplot  # https://pypi.org/project/livelossplot/
+import numpy as np  # https://numpy.org/
+import pandas as pd  # https://pandas.pydata.org/
+import torch  # https://pytorch.org/docs/stable/index.html
+from torch.utils.data import DataLoader  # https://pytorch.org/docs/stable/data.html
+from tqdm import trange, tqdm  # https://pypi.org/project/tqdm/
+from transformers import logging  # https://huggingface.co/transformers/main_classes/logging.html
 
 from ClassificationDataSequence import ClassificationDataSequence
 from NERDataSequence import NERDataSequence

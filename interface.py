@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-import os
 
-import numpy as np
-import spacy_streamlit
-import streamlit as st
+import numpy as np  # https://numpy.org/doc/stable/
+import pandas as pd  # https://pandas.pydata.org/
+import spacy_streamlit  # https://spacy.io/universe/project/spacy-streamlit
 
 from predict import *
 from utils import *
-import pandas as pd
 
 # set page config
 st.set_page_config(
@@ -26,42 +24,16 @@ Among lithium users with NDI, atorvastatin 20 mg/d did not significantly improve
 
 input_abstract_text = st.text_area("Paste full RCT paper abstract below", default_text, height=500)
 
+section_labels_to_ids = {"BACKGROUND": 0, "OBJECTIVE": 1, "METHODS": 2, "RESULTS": 3, "CONCLUSIONS": 4}
+section_ids_to_labels = {v: k for k, v in section_labels_to_ids.items()}
+participant_labels_to_ids = {"NON-PATIENT": 0, "PATIENT": 1}
+participant_ids_to_labels = {v: k for k, v in participant_labels_to_ids.items()}
+NER_labels_to_ids = {"O": 0, "INTV": 1, "OC": 2, "MEAS": 3}
+NER_ids_to_labels = {v: k for k, v in NER_labels_to_ids.items()}
+
 try:
-    section_classification_model_dir = os.path.join("models", "section classifier models")
-    section_classification_model_filename = "BERT_5Section_CustomWeightsTrue_classifier_model"
-    section_classification_tokenizer_filename = "BERT_section_classifier_tokenizer"
-    section_classification_model_filepath = os.path.join(section_classification_model_dir,
-                                                         section_classification_model_filename)
-    section_classification_tokenizer_filepath = os.path.join(section_classification_model_dir,
-                                                             section_classification_tokenizer_filename)
-    section_classification_model, section_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
-        section_classification_model_filepath, section_classification_tokenizer_filepath)
-    section_labels_to_ids = {"BACKGROUND": 0, "OBJECTIVE": 1, "METHODS": 2, "RESULTS": 3, "CONCLUSIONS": 4}
-    section_ids_to_labels = {v: k for k, v in section_labels_to_ids.items()}
-
-    participant_classification_model_dir = os.path.join("models", "participant classifier models")
-    participant_classification_model_filename = "BERT_CustomWeightsTrue_participant_classifier_model"
-    participant_classification_tokenizer_filename = "BERT_participant_classifier_tokenizer"
-    participant_classification_model_filepath = os.path.join(participant_classification_model_dir,
-                                                             participant_classification_model_filename)
-    participant_classification_tokenizer_filepath = os.path.join(participant_classification_model_dir,
-                                                                 participant_classification_tokenizer_filename)
-    participant_classification_model, participant_classification_tokenizer = load_fine_tuned_classification_model_tokenizer(
-        participant_classification_model_filepath, participant_classification_tokenizer_filepath)
-    participant_labels_to_ids = {"NON-PATIENT": 0, "PATIENT": 1}
-    participant_ids_to_labels = {v: k for k, v in participant_labels_to_ids.items()}
-
-    NER_model_dir = os.path.join("models", "NER models")
-    NER_model_filename = "RoBERTa_CustomWeightTrue_NER_model"
-    NER_tokenizer_filename = "RoBERTa_NER_tokenizer"
-    model_type = "RoBERTa"
-    NER_model_filepath = os.path.join(NER_model_dir, NER_model_filename)
-    NER_tokenizer_filepath = os.path.join(NER_model_dir, NER_tokenizer_filename)
-    NER_model, NER_tokenizer = load_fine_tuned_NER_model_tokenizer(NER_model_filepath, NER_tokenizer_filepath,
-                                                                   model_type)
-    NER_labels_to_ids = {"O": 0, "INTV": 1, "OC": 2, "MEAS": 3}
-    NER_ids_to_labels = {v: k for k, v in NER_labels_to_ids.items()}
-
+    section_classification_model, section_classification_tokenizer, participant_classification_model, \
+        participant_classification_tokenizer, NER_model, NER_tokenizer = try_load_predefined_models_tokenizers()
 except Exception as e:
     print(e)
     st.error(
@@ -141,6 +113,3 @@ if len(INTV_entities) > 0:
 if len(OC_entities) > 0:
     OC_df = pd.DataFrame({"Outcome": OC_entities})
     st.table(OC_df)
-
-
-

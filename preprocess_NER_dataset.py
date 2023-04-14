@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import simplejson
+import simplejson  # https://simplejson.readthedocs.io/en/latest/
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import \
+    train_test_split  # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 
 if __name__ == "__main__":
     input_filepath = os.path.join("datasets", "NER datasets", "RCT_ART_NER.jsonl")
@@ -43,7 +44,9 @@ if __name__ == "__main__":
 
     # Pretty save the datasets
     with open(train_dataset_output_filepath, "w", encoding="utf-8") as f:
-        f.write(simplejson.dumps({"token_texts_list": train_token_texts_list, "labels_list": train_labels_list}, indent=4))
+        f.write(
+            simplejson.dumps({"token_texts_list": train_token_texts_list, "labels_list": train_labels_list}, indent=4))
 
     with open(test_dataset_output_filepath, "w", encoding="utf-8") as f:
-        f.write(simplejson.dumps({"token_texts_list": test_token_texts_list, "labels_list": test_labels_list}, indent=4))
+        f.write(
+            simplejson.dumps({"token_texts_list": test_token_texts_list, "labels_list": test_labels_list}, indent=4))

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import torch
-from torch.utils.data import Dataset
+import torch  # https://pytorch.org/docs/stable/index.html
+from torch.utils.data import Dataset  # https://pytorch.org/docs/stable/data.html
+import transformers  # https://huggingface.co/docs/transformers/index
 
 
 def preprocess_text(text, tokenizer):
@@ -17,7 +18,7 @@ def preprocess_text(text, tokenizer):
 
 
 class ClassificationDataSequence(Dataset):
-    def __init__(self, lines, tokenizer, label_ids=None):
+    def __init__(self, lines, tokenizer: transformers.PreTrainedTokenizer, label_ids=None):
         self.input_ids, self.attention_masks, self.label_ids = [], [], []
         for line in lines:
             processed_text_dict = preprocess_text(line, tokenizer)

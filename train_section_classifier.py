@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from utils import *
 import os
+
 from train import train_classifier
 
 if __name__ == "__main__":
